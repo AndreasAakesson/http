@@ -29,7 +29,7 @@ TEST_CASE("Default constructor only creates status line", "[Response]") {
   //-------------------------
   string test_string = "HTTP/1.1 200 OK" CRLF CRLF;
   //-------------------------
-  REQUIRE(response.to_string() == test_string);
+  REQUIRE(test_string == response.to_string());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,7 +55,7 @@ TEST_CASE("Add header field", "[Response]") {
   string test_string = "HTTP/1.1 200 OK" CRLF
                        "Server: IncludeOS/0.7.0" CRLF CRLF;
   //-------------------------
-  REQUIRE(response.to_string() == test_string);
+  REQUIRE(test_string == response.to_string());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -68,7 +68,7 @@ TEST_CASE("Change header field value", "[Response]") {
   string test_string = "HTTP/1.1 200 OK" CRLF
                        "Content-Type: text/html" CRLF CRLF;
   //-------------------------
-  REQUIRE(response.to_string() == test_string);
+  REQUIRE(test_string == response.to_string());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -80,27 +80,27 @@ TEST_CASE("Erase header field", "[Response]") {
   //-------------------------
   string test_string = "HTTP/1.1 400 Bad Request" CRLF CRLF;
   //-------------------------
-  REQUIRE(response.to_string() == test_string);
+  REQUIRE(test_string == response.to_string());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 TEST_CASE("Clear headers", "[Response]") {
   http::Response response{http::status_t::Bad_Request};
   //-------------------------
-  response.add_header(Response::Server, "IncludeOS/0.7.0"s)
+  response.add_header(Response::Server,     "IncludeOS/0.7.0"s)
           .add_header(Entity::Content_Type, "text/javascript"s)
           .clear_headers();
   //-------------------------
   string test_string = "HTTP/1.1 400 Bad Request" CRLF CRLF;
   //-------------------------
-  REQUIRE(response.to_string() == test_string);
+  REQUIRE(test_string == response.to_string());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 TEST_CASE("Add message body", "[Response]") {
   http::Response response;
   //-------------------------
-  response.add_header(Response::Server, "IncludeOS/0.7.0"s)
+  response.add_header(Response::Server,     "IncludeOS/0.7.0"s)
           .add_header(Entity::Content_Type, "text/javascript"s);
   //-------------------------
   string javascript_file = "document.write('Hello from IncludeOS');";
@@ -113,5 +113,5 @@ TEST_CASE("Add message body", "[Response]") {
                        "Content-Length: 39" CRLF CRLF
                        "document.write('Hello from IncludeOS');";
   //-------------------------
-  REQUIRE(response.to_string() == test_string);
+  REQUIRE(test_string == response.to_string());
 }
