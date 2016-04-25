@@ -18,6 +18,9 @@
 #ifndef HTTP_SERVER_HPP
 #define HTTP_SERVER_HPP
 
+#include <functional>
+#include <vector>
+
 #include <router.hpp>
 
 #include <net/inet4>
@@ -36,6 +39,9 @@ private:
   //-------------------------------
   using Port     = const unsigned;
   using IP_Stack = std::unique_ptr<net::Inet4<VirtioNet>>;
+  using Middleware = std::function<void(const Request&, Response&, std::function<void()>)>;
+  using Stack = std::vector<Middleware>;
+
   //-------------------------------
 public:
   //-------------------------------
@@ -43,6 +49,8 @@ public:
   // the server
   //-------------------------------
   explicit Server();
+
+  Server(fs::FileSystem);
 
   //-------------------------------
   // Default destructor
@@ -75,12 +83,18 @@ public:
   //-------------------------------
   void listen(Port port);
 
+  //-------------------------------
+  // Add middleware
+  //-------------------------------
+  void use(Middleware&&);
+
 private:
   //-------------------------------
   // Class data members
   //-------------------------------
   IP_Stack inet_;
   Router   router_;
+  Stack stack_;
 
   //-----------------------------------
   // Deleted move and copy operations
@@ -98,6 +112,7 @@ private:
   // Set up the network stack
   //-------------------------------
   void initialize();
+
 }; //< class Server
 
 inline Server::Server() {
@@ -118,23 +133,41 @@ inline void Server::listen(Port port) {
   inet_->tcp().bind(port).onReceive([this](auto conn, bool) {
     //-------------------------------
     Request  req {conn->read(1024)};
+
+    auto response = std::make_shared<ServerResponse>(conn);
+    //printf("Received:%s \n", req.to_string().c_str());
     Response res;
     //-------------------------------
-    router_[{req.get_method(), req.get_uri()}](req, res);
+    auto it = stack_.begin();
+    std::function<void()> next;
+    next = [&,this]() {
+      if(it != stack_.end())
+        (*++it)(req, res, next);
+    };
+    (*it)(req, res, next);
     //-------------------------------
-    conn->write(res);
+    //conn->write(res);
   });
 }
 
 inline void Server::initialize() {
-  decltype(auto) eth0 = hw::Dev::eth<0,VirtioNet>();
-  //-------------------------------
-  inet_ = std::make_unique<net::Inet4<VirtioNet>>(eth0);
-  //-------------------------------
-  inet_->network_config({{ 10,0,0,42 }},     // IP
-                        {{ 255,255,255,0 }}, // Netmask
-                        {{ 10,0,0,1 }},      // Gateway
-                        {{ 8,8,8,8 }});      // DNS
+  hw::Nic<VirtioNet>& eth0 = hw::Dev::eth<0,VirtioNet>();
+  inet_ = std::make_unique<net::Inet4<VirtioNet> >(eth0);
+  
+  inet_->network_config( {{ 10,0,0,42 }},      // IP
+      {{ 255,255,255,0 }},  // Netmask
+      {{ 10,0,0,1 }},       // Gateway
+      {{ 8,8,8,8 }} );      // DNS
+
+  stack_.push_back([](const Request& req, Response& res, std::function<void()> next){
+    printf("Server header\n");
+    res.add_header(header_fields::Response::Server, std::string{"IncludeOS-http"});
+    next();
+  });
+}
+
+inline void Server::use(Middleware&& mw) {
+  stack_.push_back(mw);
 }
 
 } // namespace http
